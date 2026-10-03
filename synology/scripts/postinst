@@ -11,7 +11,10 @@ PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
 PKG_VAR="${PKG_DEST}/var"
 PKG_USER="sc-snapdrop"
 PKG_GROUP="sc-snapdrop"
-LOG="${SYNOPKG_TEMP_LOGFILE:-/dev/null}"
+# NOTE: deliberately NOT ${SYNOPKG_TEMP_LOGFILE} - whatever that file contains is
+# shown by Package Center in a modal dialog after installation. We log to our
+# own file instead so the install finishes without a popup.
+LOG="${PKG_VAR}/install.log"
 PORT_FILE="${PKG_VAR}/${PKG_NAME}.port"
 DEFAULT_PORT="3000"
 
@@ -31,13 +34,14 @@ normalize_port() {
     fi
 }
 
+# Create the writable data directory first: the install log lives here too
+# (log file + pid file + persisted port are all kept in this directory)
+mkdir -p "${PKG_VAR}"
+
 # DSM 6 does not export SYNOPKG_DSM_VERSION; read it from /etc/VERSION instead.
 DSM_VER="$(sed -n 's/^productversion="\(.*\)"/\1/p' /etc/VERSION 2>/dev/null)"
 [ -n "${DSM_VER}" ] || DSM_VER="${SYNOPKG_DSM_VERSION:-unknown}"
 log "postinst: installing ${PKG_NAME} (DSM ${DSM_VER})"
-
-# Create the writable data directory (log file + pid file live here)
-mkdir -p "${PKG_VAR}"
 log "created data directory ${PKG_VAR}"
 
 if [ -f "${PKG_DEST}/index.js" ]; then
