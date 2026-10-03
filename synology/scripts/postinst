@@ -1,0 +1,121 @@
+#!/bin/sh
+# Snapdrop post-install script (DSM 6.2, runs as root)
+#
+# The application and its node_modules are shipped inside package.tgz, so there
+# is nothing to download or compile here. We prepare the writable data
+# directory, persist the port chosen in the installation wizard and report the
+# detected Node.js runtime.
+
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+PKG_VAR="${PKG_DEST}/var"
+PKG_USER="sc-snapdrop"
+PKG_GROUP="sc-snapdrop"
+# NOTE: deliberately NOT ${SYNOPKG_TEMP_LOGFILE} - whatever that file contains is
+# shown by Package Center in a modal dialog after installation. We log to our
+# own file instead so the install finishes without a popup.
+LOG="${PKG_VAR}/install.log"
+PORT_FILE="${PKG_VAR}/${PKG_NAME}.port"
+DEFAULT_PORT="3000"
+
+log() {
+    echo "$(date +'%Y/%m/%d %H:%M:%S')  $*" >> "${LOG}"
+}
+
+# Accept only a plain TCP port number in the range offered by the wizard
+# (10-65535), otherwise fall back to the default. Values with a leading zero are
+# rejected too, so the result is always a plain decimal string.
+normalize_port() {
+    case "$1" in
+        ''|*[!0-9]*|0*) echo "${DEFAULT_PORT}"; return ;;
+    esac
+    if [ "$1" -lt 10 ] || [ "$1" -gt 65535 ]; then
+        echo "${DEFAULT_PORT}"
+    else
+        echo "$1"
+    fi
+}
+
+# Create the writable data directory first: the install log lives here too
+# (log file + pid file + persisted port are all kept in this directory)
+mkdir -p "${PKG_VAR}"
+
+# DSM 6 does not export SYNOPKG_DSM_VERSION; read it from /etc/VERSION instead.
+DSM_VER="$(sed -n 's/^productversion="\(.*\)"/\1/p' /etc/VERSION 2>/dev/null)"
+[ -n "${DSM_VER}" ] || DSM_VER="${SYNOPKG_DSM_VERSION:-unknown}"
+log "postinst: installing ${PKG_NAME} (DSM ${DSM_VER})"
+log "created data directory ${PKG_VAR}"
+
+if [ -f "${PKG_DEST}/index.js" ]; then
+    log "application entrypoint found: ${PKG_DEST}/index.js"
+else
+    log "WARNING: ${PKG_DEST}/index.js is missing"
+fi
+
+# --- Port chosen in the installation wizard ---------------------------------
+# The wizard (install_uifile) only runs on a fresh install. During an upgrade
+# wizard_port is empty, so the port persisted by the previous version has to be
+# kept instead of being reset to the default.
+if [ -n "${wizard_port}" ]; then
+    PORT="$(normalize_port "${wizard_port}")"
+    if [ "${PORT}" != "${wizard_port}" ]; then
+        log "WARNING: ignoring invalid wizard port '${wizard_port}', using ${PORT}"
+    fi
+else
+    PORT="$(normalize_port "$(tr -d ' \t\r\n' < "${PORT_FILE}" 2>/dev/null)")"
+    log "no wizard port in this run (upgrade), keeping configured port ${PORT}"
+fi
+printf '%s\n' "${PORT}" > "${PORT_FILE}"
+log "service port set to ${PORT} (persisted in ${PORT_FILE})"
+
+# Keep DSM's firewall / port-forwarding entry in sync with the chosen port.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${SELF_DIR}/set-port" ]; then
+    if "${SELF_DIR}/set-port" "${PORT}" >> "${LOG}" 2>&1; then
+        log "registered port ${PORT} with DSM port-config"
+    else
+        log "WARNING: could not register port ${PORT} with DSM (service still listens on it)"
+    fi
+fi
+
+# Report which Node.js runtime will be used at runtime
+NODE_BIN=""
+for candidate in \
+    /var/packages/Node.js_v20/target/bin/node \
+    /var/packages/Node.js_v18/target/bin/node \
+    /var/packages/Node.js_v16/target/bin/node \
+    /var/packages/Node.js_v12/target/bin/node \
+    /var/packages/Node.js_v8/target/bin/node \
+    /usr/local/bin/node \
+    /usr/bin/node; do
+    if [ -x "${candidate}" ]; then
+        NODE_BIN="${candidate}"
+        break
+    fi
+done
+
+if [ -n "${NODE_BIN}" ]; then
+    log "node runtime: ${NODE_BIN} ($(${NODE_BIN} -v 2>/dev/null))"
+else
+    log "WARNING: no Node.js runtime found. Install 'Node.js v12' from Package Center."
+fi
+
+# The service runs as the package user, so it needs to own its data directory
+chown -R "${PKG_USER}:${PKG_GROUP}" "${PKG_VAR}" 2>/dev/null
+chmod 755 "${PKG_DEST}" 2>/dev/null
+
+# Best-effort detection of the NAS LAN address so the log shows a usable URL.
+# (DSM renders this log as HTML, so angle brackets like <NAS> get swallowed.)
+NAS_IP=""
+if command -v ip >/dev/null 2>&1; then
+    NAS_IP="$(ip route get 8.8.8.8 2>/dev/null | sed -n 's/.* src \([0-9][0-9.]*\).*/\1/p')"
+fi
+if [ -z "${NAS_IP}" ]; then
+    NAS_IP="$(hostname -i 2>/dev/null | awk '{print $1}')"
+fi
+case "${NAS_IP}" in
+    ''|'0.0.0.0'|'127.0.0.1') NAS_IP="your-NAS-IP" ;;
+esac
+
+log "postinst: done. Snapdrop is ready at http://${NAS_IP}:${PORT}/"
+exit 0

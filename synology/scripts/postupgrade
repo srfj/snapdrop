@@ -1,0 +1,37 @@
+#!/bin/sh
+# Snapdrop post-upgrade script (DSM 6.2, runs as root)
+# Restore the configured port and the ownership of the writable data directory,
+# and re-apply the port to DSM's port configuration: the package files (including
+# port_conf/snapdrop.sc) were replaced by the new version during the upgrade.
+
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+PKG_VAR="${PKG_DEST}/var"
+PORT_FILE="${PKG_VAR}/${PKG_NAME}.port"
+UPGRADE_DIR="${SYNOPKG_TEMP_UPGRADE_FOLDER}/var"
+DEFAULT_PORT="3000"
+
+mkdir -p "${PKG_VAR}"
+
+# Restore the port saved before the upgrade
+if [ -f "${UPGRADE_DIR}/${PKG_NAME}.port" ]; then
+    cp -f "${UPGRADE_DIR}/${PKG_NAME}.port" "${PORT_FILE}" 2>/dev/null
+fi
+
+PORT="$(tr -d ' \t\r\n' < "${PORT_FILE}" 2>/dev/null)"
+case "${PORT}" in
+    ''|*[!0-9]*) PORT="${DEFAULT_PORT}" ;;
+esac
+if [ "${PORT}" -lt 1 ] || [ "${PORT}" -gt 65535 ]; then
+    PORT="${DEFAULT_PORT}"
+fi
+printf '%s\n' "${PORT}" > "${PORT_FILE}"
+
+# Re-apply the port to the freshly extracted protocol file
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${SELF_DIR}/set-port" ]; then
+    "${SELF_DIR}/set-port" "${PORT}" >/dev/null 2>&1 || true
+fi
+
+chown -R "sc-snapdrop:sc-snapdrop" "${PKG_VAR}" 2>/dev/null
+exit 0

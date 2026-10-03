@@ -1,0 +1,23 @@
+#!/bin/sh
+# Snapdrop pre-upgrade script (DSM 6.2, runs as root)
+# Stop the running service and preserve the configured port before the package
+# files are replaced.
+
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+PKG_VAR="${PKG_DEST}/var"
+PORT_FILE="${PKG_VAR}/${PKG_NAME}.port"
+UPGRADE_DIR="${SYNOPKG_TEMP_UPGRADE_FOLDER}/var"
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${SELF_DIR}/start-stop-status" ]; then
+    "${SELF_DIR}/start-stop-status" stop
+fi
+
+# Save the port so the upgrade keeps the user's choice
+if [ -f "${PORT_FILE}" ]; then
+    mkdir -p "${UPGRADE_DIR}" 2>/dev/null
+    cp -f "${PORT_FILE}" "${UPGRADE_DIR}/${PKG_NAME}.port" 2>/dev/null
+fi
+
+exit 0

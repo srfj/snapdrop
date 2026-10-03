@@ -1,0 +1,4 @@
+#!/bin/sh
+# Snapdrop post-uninstall script (DSM 6.2, runs as root)
+# DSM removes /var/packages/snapdrop (including the pid/log files) itself.
+exit 0

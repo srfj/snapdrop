@@ -1,0 +1,32 @@
+#!/bin/sh
+# Snapdrop pre-install script (DSM 6.2, runs as root)
+#
+# DSM runs this before its resource workers acquire resources. The port-config
+# worker copies port_conf/snapdrop.sc into /usr/local/etc/service.d shortly
+# after this script, so if the installation wizard already provided the port we
+# stamp it into that file now (and into app/config, which defines the DSM
+# desktop shortcut). This way DSM registers the correct port without needing an
+# extra reload.
+#
+# If the wizard value is not available at this stage (it is only guaranteed for
+# postinst), postinst re-applies the port and reloads the configuration.
+
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+
+case "${wizard_port}" in
+    ''|*[!0-9]*) exit 0 ;;
+esac
+if [ "${wizard_port}" -lt 1 ] || [ "${wizard_port}" -gt 65535 ]; then
+    exit 0
+fi
+
+if [ -f "${PKG_DEST}/port_conf/${PKG_NAME}.sc" ]; then
+    SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+    if [ -x "${SELF_DIR}/set-port" ]; then
+        # Update the files only; DSM reloads the port-config resource right after.
+        SET_PORT_NO_RELOAD=1 "${SELF_DIR}/set-port" "${wizard_port}" >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0

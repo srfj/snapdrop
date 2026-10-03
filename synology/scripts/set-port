@@ -1,0 +1,59 @@
+#!/bin/sh
+# Snapdrop helper: apply the user-selected port to DSM's port configuration.
+#
+# Usage: set-port <port>
+#
+# Rewrites the "dst.ports" entry of the port-config protocol file shipped in the
+# package (port_conf/snapdrop.sc) so that the firewall / port-forwarding entry
+# registered with DSM matches the port the service actually listens on, and
+# stamps the same port into the desktop shortcut definition (app/config) so the
+# DSM desktop icon opens http://<nas>:<port>/. It then asks DSM to reload the
+# port-config resource.
+#
+# Failures here are never fatal: the service still runs on the chosen port even
+# if DSM cannot be told about the change.
+#
+# Set SET_PORT_NO_RELOAD=1 to update the file without triggering a DSM reload
+# (used from preinst, where DSM reloads the resource right afterwards anyway).
+
+PORT="$1"
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+SC_FILE="${PKG_DEST}/port_conf/${PKG_NAME}.sc"
+APP_CONFIG="${PKG_DEST}/app/config"
+
+case "${PORT}" in
+    ''|*[!0-9]*)
+        echo "set-port: refusing invalid port '${PORT}'" >&2
+        exit 1
+        ;;
+esac
+if [ "${PORT}" -lt 1 ] || [ "${PORT}" -gt 65535 ]; then
+    echo "set-port: port out of range: ${PORT}" >&2
+    exit 1
+fi
+
+if [ -f "${SC_FILE}" ]; then
+    sed -i "s|^dst\.ports=.*|dst.ports=\"${PORT}/tcp\"|" "${SC_FILE}" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "set-port: could not update ${SC_FILE}" >&2
+        exit 1
+    fi
+else
+    echo "set-port: ${SC_FILE} not found, nothing to update" >&2
+    exit 1
+fi
+
+# Keep the DSM desktop shortcut in sync (it opens http://<nas>:<port>/).
+if [ -f "${APP_CONFIG}" ]; then
+    sed -i "s|\"port\": *\"[0-9]*\"|\"port\": \"${PORT}\"|" "${APP_CONFIG}" 2>/dev/null \
+        || echo "set-port: could not update ${APP_CONFIG}" >&2
+fi
+
+# Let DSM copy the protocol file to /usr/local/etc/service.d and reload the
+# firewall and port-forwarding rules. Not every DSM build has synopkghelper.
+if [ "${SET_PORT_NO_RELOAD}" != "1" ] && [ -x /usr/syno/sbin/synopkghelper ]; then
+    /usr/syno/sbin/synopkghelper update "${PKG_NAME}" port-config >/dev/null 2>&1
+fi
+
+exit 0

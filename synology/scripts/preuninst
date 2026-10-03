@@ -1,0 +1,8 @@
+#!/bin/sh
+# Snapdrop pre-uninstall script (DSM 6.2, runs as root)
+# Make sure the service is stopped before the package files are removed.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${SELF_DIR}/start-stop-status" ]; then
+    "${SELF_DIR}/start-stop-status" stop
+fi
+exit 0
