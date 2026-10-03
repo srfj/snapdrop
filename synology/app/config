@@ -1,0 +1,16 @@
+{
+    ".url": {
+        "com.fairysoft.snapdrop": {
+            "type": "url",
+            "title": "Snapdrop",
+            "desc": "Snapdrop - 局域网文件互传",
+            "icon": "images/snapdrop-{0}.png",
+            "protocol": "http",
+            "port": "3000",
+            "url": "/",
+            "allUsers": true,
+            "grantPrivilege": "all",
+            "advanceGrantPrivilege": true
+        }
+    }
+}

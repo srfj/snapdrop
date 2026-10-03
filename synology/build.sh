@@ -14,7 +14,7 @@ set -euo pipefail
 
 PKG_NAME="snapdrop"
 PKG_VERSION="2.0.0"
-PKG_REV="3"
+PKG_REV="4"
 SPK_OS="6.2.3"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -38,6 +38,9 @@ cp -R "${SRC_DIR}/public" "${PAYLOAD_DIR}/public"
 # the service shows up in the firewall / port-forwarding application lists; the
 # installer stamps the user-selected port into it (see scripts/set-port).
 cp -R "${SCRIPT_DIR}/port_conf" "${PAYLOAD_DIR}/port_conf"
+# DSM desktop shortcut (app/config + icons). The port inside app/config is
+# stamped with the user-selected port at install time (see scripts/set-port).
+cp -R "${SCRIPT_DIR}/app" "${PAYLOAD_DIR}/app"
 
 echo "==> Installing production dependencies"
 ( cd "${PAYLOAD_DIR}" && npm install --omit=dev --no-audit --no-fund --loglevel=error )

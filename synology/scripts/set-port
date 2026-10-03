@@ -5,8 +5,10 @@
 #
 # Rewrites the "dst.ports" entry of the port-config protocol file shipped in the
 # package (port_conf/snapdrop.sc) so that the firewall / port-forwarding entry
-# registered with DSM matches the port the service actually listens on, then
-# asks DSM to reload it.
+# registered with DSM matches the port the service actually listens on, and
+# stamps the same port into the desktop shortcut definition (app/config) so the
+# DSM desktop icon opens http://<nas>:<port>/. It then asks DSM to reload the
+# port-config resource.
 #
 # Failures here are never fatal: the service still runs on the chosen port even
 # if DSM cannot be told about the change.
@@ -18,6 +20,7 @@ PORT="$1"
 PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
 PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
 SC_FILE="${PKG_DEST}/port_conf/${PKG_NAME}.sc"
+APP_CONFIG="${PKG_DEST}/app/config"
 
 case "${PORT}" in
     ''|*[!0-9]*)
@@ -39,6 +42,12 @@ if [ -f "${SC_FILE}" ]; then
 else
     echo "set-port: ${SC_FILE} not found, nothing to update" >&2
     exit 1
+fi
+
+# Keep the DSM desktop shortcut in sync (it opens http://<nas>:<port>/).
+if [ -f "${APP_CONFIG}" ]; then
+    sed -i "s|\"port\": *\"[0-9]*\"|\"port\": \"${PORT}\"|" "${APP_CONFIG}" 2>/dev/null \
+        || echo "set-port: could not update ${APP_CONFIG}" >&2
 fi
 
 # Let DSM copy the protocol file to /usr/local/etc/service.d and reload the
