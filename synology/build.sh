@@ -14,7 +14,7 @@ set -euo pipefail
 
 PKG_NAME="snapdrop"
 PKG_VERSION="2.0.0"
-PKG_REV="6"
+PKG_REV="7"
 SPK_OS="6.2.3"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

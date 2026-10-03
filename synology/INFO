@@ -1,5 +1,5 @@
 package="snapdrop"
-version="2.0.0-6"
+version="2.0.0-7"
 description="Snapdrop - AirDrop-like local file sharing in your browser. Share files between devices in the same LAN, or across networks by joining the same room name. The web interface port is chosen during installation (default 3000)."
 description_enu="Snapdrop - AirDrop-like local file sharing in your browser."
 arch="noarch"
