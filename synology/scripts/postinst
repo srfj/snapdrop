@@ -51,9 +51,17 @@ else
 fi
 
 # --- Port chosen in the installation wizard ---------------------------------
-PORT="$(normalize_port "${wizard_port}")"
-if [ -n "${wizard_port}" ] && [ "${PORT}" != "${wizard_port}" ]; then
-    log "WARNING: ignoring invalid wizard port '${wizard_port}', using ${PORT}"
+# The wizard (install_uifile) only runs on a fresh install. During an upgrade
+# wizard_port is empty, so the port persisted by the previous version has to be
+# kept instead of being reset to the default.
+if [ -n "${wizard_port}" ]; then
+    PORT="$(normalize_port "${wizard_port}")"
+    if [ "${PORT}" != "${wizard_port}" ]; then
+        log "WARNING: ignoring invalid wizard port '${wizard_port}', using ${PORT}"
+    fi
+else
+    PORT="$(normalize_port "$(tr -d ' \t\r\n' < "${PORT_FILE}" 2>/dev/null)")"
+    log "no wizard port in this run (upgrade), keeping configured port ${PORT}"
 fi
 printf '%s\n' "${PORT}" > "${PORT_FILE}"
 log "service port set to ${PORT} (persisted in ${PORT_FILE})"
