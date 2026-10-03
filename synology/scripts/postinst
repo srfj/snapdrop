@@ -31,7 +31,10 @@ normalize_port() {
     fi
 }
 
-log "postinst: installing ${PKG_NAME} (DSM ${SYNOPKG_DSM_VERSION:-unknown})"
+# DSM 6 does not export SYNOPKG_DSM_VERSION; read it from /etc/VERSION instead.
+DSM_VER="$(sed -n 's/^productversion="\(.*\)"/\1/p' /etc/VERSION 2>/dev/null)"
+[ -n "${DSM_VER}" ] || DSM_VER="${SYNOPKG_DSM_VERSION:-unknown}"
+log "postinst: installing ${PKG_NAME} (DSM ${DSM_VER})"
 
 # Create the writable data directory (log file + pid file live here)
 mkdir -p "${PKG_VAR}"
@@ -87,5 +90,18 @@ fi
 chown -R "${PKG_USER}:${PKG_GROUP}" "${PKG_VAR}" 2>/dev/null
 chmod 755 "${PKG_DEST}" 2>/dev/null
 
-log "postinst: done, Snapdrop will be reachable at http://<NAS>:${PORT}/"
+# Best-effort detection of the NAS LAN address so the log shows a usable URL.
+# (DSM renders this log as HTML, so angle brackets like <NAS> get swallowed.)
+NAS_IP=""
+if command -v ip >/dev/null 2>&1; then
+    NAS_IP="$(ip route get 8.8.8.8 2>/dev/null | sed -n 's/.* src \([0-9][0-9.]*\).*/\1/p')"
+fi
+if [ -z "${NAS_IP}" ]; then
+    NAS_IP="$(hostname -i 2>/dev/null | awk '{print $1}')"
+fi
+case "${NAS_IP}" in
+    ''|'0.0.0.0'|'127.0.0.1') NAS_IP="your-NAS-IP" ;;
+esac
+
+log "postinst: done. Snapdrop is ready at http://${NAS_IP}:${PORT}/"
 exit 0
