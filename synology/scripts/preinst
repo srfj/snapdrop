@@ -1,0 +1,4 @@
+#!/bin/sh
+# Snapdrop pre-install script (DSM 6.2, runs as root)
+# Nothing to prepare before files are copied into place.
+exit 0

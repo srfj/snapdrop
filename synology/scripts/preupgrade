@@ -1,0 +1,8 @@
+#!/bin/sh
+# Snapdrop pre-upgrade script (DSM 6.2, runs as root)
+# Stop the running service before its files are replaced.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${SELF_DIR}/start-stop-status" ]; then
+    "${SELF_DIR}/start-stop-status" stop
+fi
+exit 0

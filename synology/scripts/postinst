@@ -1,0 +1,57 @@
+#!/bin/sh
+# Snapdrop post-install script (DSM 6.2, runs as root)
+#
+# The application and its node_modules are shipped inside package.tgz, so there
+# is nothing to download or compile here. We only prepare the writable data
+# directory and report the detected Node.js runtime.
+
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+PKG_VAR="${PKG_DEST}/var"
+PKG_USER="sc-snapdrop"
+PKG_GROUP="sc-snapdrop"
+LOG="${SYNOPKG_TEMP_LOGFILE:-/dev/null}"
+
+log() {
+    echo "$(date +'%Y/%m/%d %H:%M:%S')  $*" >> "${LOG}"
+}
+
+log "postinst: installing ${PKG_NAME} (DSM ${SYNOPKG_DSM_VERSION:-unknown})"
+
+# Create the writable data directory (log file + pid file live here)
+mkdir -p "${PKG_VAR}"
+log "created data directory ${PKG_VAR}"
+
+if [ -f "${PKG_DEST}/index.js" ]; then
+    log "application entrypoint found: ${PKG_DEST}/index.js"
+else
+    log "WARNING: ${PKG_DEST}/index.js is missing"
+fi
+
+# Report which Node.js runtime will be used at runtime
+NODE_BIN=""
+for candidate in \
+    /var/packages/Node.js_v20/target/bin/node \
+    /var/packages/Node.js_v18/target/bin/node \
+    /var/packages/Node.js_v16/target/bin/node \
+    /var/packages/Node.js_v12/target/bin/node \
+    /var/packages/Node.js_v8/target/bin/node \
+    /usr/local/bin/node \
+    /usr/bin/node; do
+    if [ -x "${candidate}" ]; then
+        NODE_BIN="${candidate}"
+        break
+    fi
+done
+
+if [ -n "${NODE_BIN}" ]; then
+    log "node runtime: ${NODE_BIN} ($(${NODE_BIN} -v 2>/dev/null))"
+else
+    log "WARNING: no Node.js runtime found. Install 'Node.js v12' from Package Center."
+fi
+
+# The service runs as the package user, so it needs to own its data directory
+chown -R "${PKG_USER}:${PKG_GROUP}" "${PKG_VAR}" 2>/dev/null
+chmod 755 "${PKG_DEST}" 2>/dev/null
+
+exit 0

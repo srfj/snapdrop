@@ -1,0 +1,9 @@
+#!/bin/sh
+# Snapdrop post-upgrade script (DSM 6.2, runs as root)
+# Restore ownership of the writable data directory that survived the upgrade.
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+PKG_VAR="${PKG_DEST}/var"
+mkdir -p "${PKG_VAR}"
+chown -R "sc-snapdrop:sc-snapdrop" "${PKG_VAR}" 2>/dev/null
+exit 0
