@@ -1,0 +1,28 @@
+[
+  {
+    "step_title": "Snapdrop Configuration",
+    "items": [
+      {
+        "type": "textfield",
+        "desc": "Choose the TCP port the Snapdrop web interface should listen on. After installation, open <b>http://&lt;your-NAS-address&gt;:&lt;port&gt;</b> in a browser. Make sure the port is not used by another package or service.",
+        "subitems": [
+          {
+            "key": "wizard_port",
+            "desc": "Port (1024-65535)",
+            "defaultValue": "3000",
+            "validator": {
+              "allowBlank": false,
+              "regex": {
+                "expr": "/^[0-9]{4,5}$/",
+                "errorText": "Please enter a port number between 1024 and 65535."
+              }
+            }
+          }
+        ]
+      },
+      {
+        "desc": "The same port is registered with DSM, so it is automatically added to the <b>firewall</b> and <b>port forwarding</b> application lists."
+      }
+    ]
+  }
+]

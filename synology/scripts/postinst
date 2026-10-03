@@ -2,8 +2,9 @@
 # Snapdrop post-install script (DSM 6.2, runs as root)
 #
 # The application and its node_modules are shipped inside package.tgz, so there
-# is nothing to download or compile here. We only prepare the writable data
-# directory and report the detected Node.js runtime.
+# is nothing to download or compile here. We prepare the writable data
+# directory, persist the port chosen in the installation wizard and report the
+# detected Node.js runtime.
 
 PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
 PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
@@ -11,9 +12,23 @@ PKG_VAR="${PKG_DEST}/var"
 PKG_USER="sc-snapdrop"
 PKG_GROUP="sc-snapdrop"
 LOG="${SYNOPKG_TEMP_LOGFILE:-/dev/null}"
+PORT_FILE="${PKG_VAR}/${PKG_NAME}.port"
+DEFAULT_PORT="3000"
 
 log() {
     echo "$(date +'%Y/%m/%d %H:%M:%S')  $*" >> "${LOG}"
+}
+
+# Accept only a plain TCP port number, otherwise fall back to the default.
+normalize_port() {
+    case "$1" in
+        ''|*[!0-9]*) echo "${DEFAULT_PORT}"; return ;;
+    esac
+    if [ "$1" -lt 1 ] || [ "$1" -gt 65535 ]; then
+        echo "${DEFAULT_PORT}"
+    else
+        echo "$1"
+    fi
 }
 
 log "postinst: installing ${PKG_NAME} (DSM ${SYNOPKG_DSM_VERSION:-unknown})"
@@ -26,6 +41,24 @@ if [ -f "${PKG_DEST}/index.js" ]; then
     log "application entrypoint found: ${PKG_DEST}/index.js"
 else
     log "WARNING: ${PKG_DEST}/index.js is missing"
+fi
+
+# --- Port chosen in the installation wizard ---------------------------------
+PORT="$(normalize_port "${wizard_port}")"
+if [ -n "${wizard_port}" ] && [ "${PORT}" != "${wizard_port}" ]; then
+    log "WARNING: ignoring invalid wizard port '${wizard_port}', using ${PORT}"
+fi
+printf '%s\n' "${PORT}" > "${PORT_FILE}"
+log "service port set to ${PORT} (persisted in ${PORT_FILE})"
+
+# Keep DSM's firewall / port-forwarding entry in sync with the chosen port.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${SELF_DIR}/set-port" ]; then
+    if "${SELF_DIR}/set-port" "${PORT}" >> "${LOG}" 2>&1; then
+        log "registered port ${PORT} with DSM port-config"
+    else
+        log "WARNING: could not register port ${PORT} with DSM (service still listens on it)"
+    fi
 fi
 
 # Report which Node.js runtime will be used at runtime
@@ -54,4 +87,5 @@ fi
 chown -R "${PKG_USER}:${PKG_GROUP}" "${PKG_VAR}" 2>/dev/null
 chmod 755 "${PKG_DEST}" 2>/dev/null
 
+log "postinst: done, Snapdrop will be reachable at http://<NAS>:${PORT}/"
 exit 0

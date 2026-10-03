@@ -14,7 +14,7 @@ set -euo pipefail
 
 PKG_NAME="snapdrop"
 PKG_VERSION="2.0.0"
-PKG_REV="1"
+PKG_REV="2"
 SPK_OS="6.2.3"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -25,7 +25,7 @@ SPK_DIR="${BUILD_DIR}/spk"
 
 echo "==> Cleaning build directory"
 rm -rf "${BUILD_DIR}"
-mkdir -p "${PAYLOAD_DIR}" "${SPK_DIR}/scripts" "${SPK_DIR}/conf"
+mkdir -p "${PAYLOAD_DIR}" "${SPK_DIR}/scripts" "${SPK_DIR}/conf" "${SPK_DIR}/WIZARD_UIFILES"
 
 echo "==> Copying application payload"
 cp "${SRC_DIR}/index.js" \
@@ -34,6 +34,10 @@ cp "${SRC_DIR}/index.js" \
    "${SRC_DIR}/README.md" \
    "${PAYLOAD_DIR}/"
 cp -R "${SRC_DIR}/public" "${PAYLOAD_DIR}/public"
+# Port-config protocol file (.sc). DSM copies it to /usr/local/etc/service.d so
+# the service shows up in the firewall / port-forwarding application lists; the
+# installer stamps the user-selected port into it (see scripts/set-port).
+cp -R "${SCRIPT_DIR}/port_conf" "${PAYLOAD_DIR}/port_conf"
 
 echo "==> Installing production dependencies"
 ( cd "${PAYLOAD_DIR}" && npm install --omit=dev --no-audit --no-fund --loglevel=error )
@@ -46,12 +50,13 @@ echo "==> Assembling package"
 cp "${SCRIPT_DIR}/INFO" "${SPK_DIR}/INFO"
 cp -R "${SCRIPT_DIR}/scripts/." "${SPK_DIR}/scripts/"
 cp -R "${SCRIPT_DIR}/conf/." "${SPK_DIR}/conf/"
+cp -R "${SCRIPT_DIR}/WIZARD_UIFILES/." "${SPK_DIR}/WIZARD_UIFILES/"
 cp "${SCRIPT_DIR}/PACKAGE_ICON.PNG" "${SPK_DIR}/PACKAGE_ICON.PNG"
 cp "${SCRIPT_DIR}/PACKAGE_ICON_256.PNG" "${SPK_DIR}/PACKAGE_ICON_256.PNG"
 cp "${BUILD_DIR}/package.tgz" "${SPK_DIR}/package.tgz"
 
 chmod 755 "${SPK_DIR}/scripts/"*
-chmod 644 "${SPK_DIR}/INFO" "${SPK_DIR}/conf/"* \
+chmod 644 "${SPK_DIR}/INFO" "${SPK_DIR}/conf/"* "${SPK_DIR}/WIZARD_UIFILES/"* \
           "${SPK_DIR}/PACKAGE_ICON.PNG" "${SPK_DIR}/PACKAGE_ICON_256.PNG"
 
 echo "==> Writing checksum into INFO"
@@ -63,6 +68,6 @@ echo "==> Creating .spk"
 SPK_FILE="${SCRIPT_DIR}/${PKG_NAME}-noarch-${SPK_OS}_${PKG_VERSION}-${PKG_REV}.spk"
 rm -f "${SPK_FILE}"
 ( cd "${SPK_DIR}" && tar czf "${SPK_FILE}" \
-    INFO package.tgz scripts conf PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG )
+    INFO package.tgz scripts conf WIZARD_UIFILES PACKAGE_ICON.PNG PACKAGE_ICON_256.PNG )
 
 echo "==> Done: ${SPK_FILE}"

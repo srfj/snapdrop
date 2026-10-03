@@ -1,4 +1,29 @@
 #!/bin/sh
 # Snapdrop pre-install script (DSM 6.2, runs as root)
-# Nothing to prepare before files are copied into place.
+#
+# DSM runs this before its resource workers acquire resources. The port-config
+# worker copies port_conf/snapdrop.sc into /usr/local/etc/service.d shortly
+# after this script, so if the installation wizard already provided the port we
+# stamp it into that file now. This way DSM registers the correct port without
+# needing an extra reload.
+#
+# If the wizard value is not available at this stage (it is only guaranteed for
+# postinst), postinst re-applies the port and reloads the configuration.
+
+PKG_NAME="${SYNOPKG_PKGNAME:-snapdrop}"
+PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
+SC_FILE="${PKG_DEST}/port_conf/${PKG_NAME}.sc"
+
+case "${wizard_port}" in
+    ''|*[!0-9]*) exit 0 ;;
+esac
+if [ "${wizard_port}" -lt 1 ] || [ "${wizard_port}" -gt 65535 ]; then
+    exit 0
+fi
+
+if [ -f "${SC_FILE}" ]; then
+    # Update the file only; DSM reloads the port-config resource right after.
+    sed -i "s|^dst\.ports=.*|dst.ports=\"${wizard_port}/tcp\"|" "${SC_FILE}" 2>/dev/null
+fi
+
 exit 0

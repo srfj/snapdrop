@@ -10,8 +10,21 @@ PKG_DEST="${SYNOPKG_PKGDEST:-/var/packages/${PKG_NAME}/target}"
 PKG_VAR="${SYNOPKG_PKGVAR:-${PKG_DEST}/var}"
 LOG_FILE="${PKG_VAR}/${PKG_NAME}.log"
 PID_FILE="${PKG_VAR}/${PKG_NAME}.pid"
-# Port the web interface listens on. Must match adminport in INFO.
-SERVICE_PORT="${SNAP_PORT:-3000}"
+# Port the web interface listens on. The installer persists the port chosen in
+# the installation wizard to ${PKG_VAR}/${PKG_NAME}.port. SNAP_PORT overrides it
+# (useful for debugging); 3000 is the last-resort default.
+PORT_FILE="${PKG_VAR}/${PKG_NAME}.port"
+SERVICE_PORT=""
+if [ -f "${PORT_FILE}" ]; then
+    SERVICE_PORT="$(tr -d ' \t\r\n' < "${PORT_FILE}" 2>/dev/null)"
+fi
+case "${SERVICE_PORT}" in
+    ''|*[!0-9]*) SERVICE_PORT="3000" ;;
+esac
+if [ "${SERVICE_PORT}" -lt 1 ] || [ "${SERVICE_PORT}" -gt 65535 ]; then
+    SERVICE_PORT="3000"
+fi
+SERVICE_PORT="${SNAP_PORT:-${SERVICE_PORT}}"
 
 mkdir -p "${PKG_VAR}" 2>/dev/null
 
